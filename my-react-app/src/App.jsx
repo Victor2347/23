@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import html2pdf from "html2pdf.js";
 import Tesseract from "tesseract.js";
+import * as XLSX from "xlsx";
 import "./App.css";
 
 const ownerName = "Victor";
@@ -23,9 +25,49 @@ const formatNumber = (value) => {
 
 const printImageScale = 1.4;
 
+const preprocessImage = (src) =>
+  new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const scale = 1.5;
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        sum += gray;
+      }
+      const avg = sum / (data.length / 4);
+
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        const contrast = 1.2;
+        const adjusted = (gray - 128) * contrast + 128;
+        const threshold = avg * 0.95;
+        const value = adjusted > threshold ? 255 : 0;
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => resolve(src);
+    image.src = src;
+  });
+
 const App = () => {
   const [items, setItems] = useState([createItem()]);
   const [activeId, setActiveId] = useState(null);
+  const printRef = useRef(null);
 
   const totalAmount = useMemo(
     () => items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
@@ -49,9 +91,15 @@ const App = () => {
   const runOcr = async (id, image) => {
     if (!image) return;
     const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    updateItemFields(id, { ocrStatus: "辨識中...", ocrText: "", ocrToken: token });
+    updateItemFields(id, {
+      ocrStatus: "前處理中...",
+      ocrText: "",
+      ocrToken: token,
+    });
     try {
-      const { data } = await Tesseract.recognize(image, "chi_tra+eng");
+      const prepared = await preprocessImage(image);
+      updateItemFields(id, { ocrStatus: "辨識中..." });
+      const { data } = await Tesseract.recognize(prepared, "chi_tra+eng");
       const text = (data?.text || "").trim();
       setItems((prev) =>
         prev.map((item) =>
@@ -115,6 +163,42 @@ const App = () => {
     }, 50);
   };
 
+  const handleExportPdf = async () => {
+    if (!printRef.current) return;
+    const filename = `receipt-${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.classList.add("exporting");
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    try {
+      await html2pdf()
+        .set({
+          margin: [8, 8, 8, 8],
+          filename,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        })
+        .from(printRef.current)
+        .save();
+    } finally {
+      document.body.classList.remove("exporting");
+    }
+  };
+
+  const handleExportExcel = () => {
+    const rows = items.map((item, index) => ({
+      "序號": index + 1,
+      "司機名稱": item.driverName || "",
+      "需收款金額": item.amount || "",
+      "備註": item.note || "",
+      "影像高度": item.imageHeight || "",
+      "OCR文字": item.ocrText || "",
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "簽收單資料");
+    XLSX.writeFile(workbook, `receipt-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
     <>
       <div className="page">
@@ -126,6 +210,12 @@ const App = () => {
         <div className="header-actions">
           <button type="button" onClick={addItem}>
             新增一筆
+          </button>
+          <button type="button" onClick={handleExportExcel}>
+            匯出 Excel
+          </button>
+          <button type="button" onClick={handleExportPdf}>
+            匯出 PDF
           </button>
           <button type="button" className="primary" onClick={handlePrint}>
             列印表格
@@ -263,10 +353,16 @@ const App = () => {
         <button type="button" className="primary" onClick={handlePrint}>
           列印明細
         </button>
+        <button type="button" onClick={handleExportPdf}>
+          匯出 PDF
+        </button>
+        <button type="button" onClick={handleExportExcel}>
+          匯出 Excel
+        </button>
       </div>
       </div>
 
-      <section className="print-page">
+      <section className="print-page" ref={printRef}>
         <div className="print-header">
           <div>
             <h2>簽收單補收款項明細</h2>

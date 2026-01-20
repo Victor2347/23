@@ -390,4 +390,17 @@ button:disabled {
     display: block;
   }
 }
+
+body.exporting {
+  background: #fff;
+}
+
+body.exporting .page,
+body.exporting .footer-bar {
+  display: none;
+}
+
+body.exporting .print-page {
+  display: block;
+}
  
