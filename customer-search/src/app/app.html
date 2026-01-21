@@ -1,0 +1,186 @@
+<div class="app-container">
+  <!-- 訊息提示 -->
+  @if (message()) {
+    <div class="toast" [class.success]="messageType() === 'success'" [class.error]="messageType() === 'error'">
+      {{ message() }}
+    </div>
+  }
+
+  <!-- 標題區 -->
+  <header class="header">
+    <h1>🔍 客戶代碼查詢系統</h1>
+    <p class="subtitle">輸入地址或收貨人快速查詢客戶代碼</p>
+  </header>
+
+  <!-- 搜尋區 -->
+  <section class="search-section">
+    <div class="search-box">
+      <input
+        type="text"
+        class="search-input"
+        placeholder="輸入地址或收貨人名稱..."
+        [value]="searchQuery()"
+        (input)="onSearchInputChange($event)"
+        (keyup.enter)="onSearch()"
+      />
+      <button class="search-btn" (click)="onSearch()" [disabled]="isSearching()">
+        @if (isSearching()) {
+          <span class="spinner"></span>
+        } @else {
+          搜尋
+        }
+      </button>
+    </div>
+  </section>
+
+  <!-- 搜尋結果 -->
+  @if (searchResults().length > 0) {
+    <section class="results-section">
+      <h2>搜尋結果 ({{ searchResults().length }} 筆)</h2>
+      <div class="results-grid">
+        @for (customer of searchResults(); track customer.id) {
+          <div class="result-card">
+            <div class="customer-code" (click)="copyToClipboard(customer.customer_code)">
+              <span class="code-label">客戶代碼</span>
+              <span class="code-value">{{ customer.customer_code }}</span>
+              <span class="copy-hint">點擊複製</span>
+            </div>
+            <div class="customer-info">
+              <div class="info-row">
+                <span class="label">收貨人</span>
+                <span class="value">{{ customer.recipient }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">地址</span>
+                <span class="value">{{ customer.address }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">統編</span>
+                <span class="value">{{ customer.tax_id || '-' }}</span>
+              </div>
+            </div>
+            <button class="delete-btn" (click)="deleteCustomer(customer.id!)">刪除</button>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- 功能按鈕區 -->
+  <section class="actions-section">
+    <button class="action-btn primary" (click)="toggleAddForm()">
+      {{ showAddForm() ? '取消' : '+ 新增客戶' }}
+    </button>
+    
+    <label class="action-btn secondary">
+      📥 匯入 Excel/CSV
+      <input
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        (change)="onFileChange($event)"
+        hidden
+      />
+    </label>
+
+    <button class="action-btn outline" (click)="toggleAllCustomers()">
+      {{ showAllCustomers() ? '隱藏列表' : '顯示所有客戶' }}
+    </button>
+  </section>
+
+  <!-- 新增表單 -->
+  @if (showAddForm()) {
+    <section class="add-form-section">
+      <h2>新增客戶</h2>
+      <form class="add-form" (submit)="$event.preventDefault(); addCustomer()">
+        <div class="form-group">
+          <label for="customer_code">客戶代碼 *</label>
+          <input
+            id="customer_code"
+            type="text"
+            [value]="newCustomer().customer_code"
+            (input)="updateNewCustomer('customer_code', $event)"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="recipient">收貨人 *</label>
+          <input
+            id="recipient"
+            type="text"
+            [value]="newCustomer().recipient"
+            (input)="updateNewCustomer('recipient', $event)"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="address">地址 *</label>
+          <input
+            id="address"
+            type="text"
+            [value]="newCustomer().address"
+            (input)="updateNewCustomer('address', $event)"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="tax_id">統編</label>
+          <input
+            id="tax_id"
+            type="text"
+            [value]="newCustomer().tax_id"
+            (input)="updateNewCustomer('tax_id', $event)"
+          />
+        </div>
+        <button type="submit" class="submit-btn">確認新增</button>
+      </form>
+    </section>
+  }
+
+  <!-- 所有客戶列表 -->
+  @if (showAllCustomers()) {
+    <section class="all-customers-section">
+      <h2>所有客戶 ({{ allCustomers().length }} 筆)</h2>
+      @if (allCustomers().length === 0) {
+        <p class="empty-state">尚無客戶資料</p>
+      } @else {
+        <div class="table-container">
+          <table class="customers-table">
+            <thead>
+              <tr>
+                <th>客戶代碼</th>
+                <th>收貨人</th>
+                <th>地址</th>
+                <th>統編</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (customer of allCustomers(); track customer.id) {
+                <tr>
+                  <td class="code-cell" (click)="copyToClipboard(customer.customer_code)">
+                    {{ customer.customer_code }}
+                  </td>
+                  <td>{{ customer.recipient }}</td>
+                  <td>{{ customer.address }}</td>
+                  <td>{{ customer.tax_id || '-' }}</td>
+                  <td>
+                    <button class="table-delete-btn" (click)="deleteCustomer(customer.id!)">
+                      刪除
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- 使用說明 -->
+  <section class="help-section">
+    <h3>📋 Excel/CSV 匯入格式</h3>
+    <p>請確保欄位名稱為：<code>客戶代碼</code>、<code>收貨人</code>、<code>地址</code>、<code>統編</code></p>
+    <p>或英文：<code>customer_code</code>、<code>recipient</code>、<code>address</code>、<code>tax_id</code></p>
+  </section>
+</div>
