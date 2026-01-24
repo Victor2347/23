@@ -45,6 +45,41 @@ export class CustomerService {
     return data || [];
   }
 
+  // 檢查客戶代碼是否已存在
+  async checkCustomerCodeExists(customerCode: string): Promise<boolean> {
+    const supabase = this.supabaseService.getClient();
+
+    const { data, error } = await supabase
+      .from(this.tableName)
+      .select('id')
+      .eq('customer_code', customerCode)
+      .limit(1);
+
+    if (error) {
+      console.error('檢查客戶代碼錯誤:', error);
+      throw error;
+    }
+
+    return (data?.length || 0) > 0;
+  }
+
+  // 批次檢查客戶代碼是否已存在（回傳已存在的代碼）
+  async checkCustomerCodesExist(customerCodes: string[]): Promise<string[]> {
+    const supabase = this.supabaseService.getClient();
+
+    const { data, error } = await supabase
+      .from(this.tableName)
+      .select('customer_code')
+      .in('customer_code', customerCodes);
+
+    if (error) {
+      console.error('批次檢查客戶代碼錯誤:', error);
+      throw error;
+    }
+
+    return data?.map((d) => d.customer_code) || [];
+  }
+
   // 新增客戶
   async addCustomer(customer: Omit<Customer, 'id' | 'created_at'>): Promise<Customer> {
     const supabase = this.supabaseService.getClient();

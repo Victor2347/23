@@ -115,6 +115,13 @@ export class App implements OnInit {
     }
 
     try {
+      // 檢查客戶代碼是否已存在
+      const exists = await this.customerService.checkCustomerCodeExists(customer.customer_code);
+      if (exists) {
+        this.showMessage(`客戶代碼「${customer.customer_code}」已存在！`, 'error');
+        return;
+      }
+
       await this.customerService.addCustomer(customer);
       this.showMessage('新增成功！', 'success');
       this.resetNewCustomer();
@@ -137,6 +144,22 @@ export class App implements OnInit {
       const data = await this.readExcelFile(file);
       if (data.length === 0) {
         this.showMessage('檔案內容為空或格式錯誤', 'error');
+        return;
+      }
+
+      // 檢查檔案內是否有重複的客戶代碼
+      const codes = data.map((c) => c.customer_code);
+      const duplicatesInFile = codes.filter((code, index) => codes.indexOf(code) !== index);
+      if (duplicatesInFile.length > 0) {
+        const uniqueDuplicates = [...new Set(duplicatesInFile)];
+        this.showMessage(`檔案內有重複的客戶代碼：${uniqueDuplicates.join(', ')}`, 'error');
+        return;
+      }
+
+      // 檢查資料庫中是否已存在這些客戶代碼
+      const existingCodes = await this.customerService.checkCustomerCodesExist(codes);
+      if (existingCodes.length > 0) {
+        this.showMessage(`以下客戶代碼已存在：${existingCodes.join(', ')}`, 'error');
         return;
       }
 
