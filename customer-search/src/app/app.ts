@@ -27,6 +27,7 @@ export class App implements OnInit {
     recipient: '',
     address: '',
     tax_id: '',
+    notes: '',
   });
 
   // 匯入
@@ -99,6 +100,7 @@ export class App implements OnInit {
       recipient: '',
       address: '',
       tax_id: '',
+      notes: '',
     });
   }
 
@@ -109,20 +111,35 @@ export class App implements OnInit {
 
   async addCustomer() {
     const customer = this.newCustomer();
-    if (!customer.customer_code || !customer.recipient || !customer.address) {
-      this.showMessage('請填寫客戶代碼、收貨人、地址', 'error');
+    
+    // 驗證：收貨人、地址必填；客戶代碼和統編至少要填一個
+    if (!customer.recipient || !customer.address) {
+      this.showMessage('請填寫收貨人、地址', 'error');
+      return;
+    }
+    
+    if (!customer.customer_code && !customer.tax_id) {
+      this.showMessage('請填寫客戶代碼或統編（至少填一個）', 'error');
       return;
     }
 
     try {
-      // 檢查客戶代碼是否已存在
-      const exists = await this.customerService.checkCustomerCodeExists(customer.customer_code);
-      if (exists) {
-        this.showMessage(`客戶代碼「${customer.customer_code}」已存在！`, 'error');
-        return;
+      // 如果有填客戶代碼，檢查是否已存在
+      if (customer.customer_code) {
+        const exists = await this.customerService.checkCustomerCodeExists(customer.customer_code);
+        if (exists) {
+          this.showMessage(`客戶代碼「${customer.customer_code}」已存在！`, 'error');
+          return;
+        }
       }
 
-      await this.customerService.addCustomer(customer);
+      // 如果沒填客戶代碼但有統編，用統編當客戶代碼
+      const customerToAdd = { ...customer };
+      if (!customerToAdd.customer_code && customerToAdd.tax_id) {
+        customerToAdd.customer_code = customerToAdd.tax_id;
+      }
+
+      await this.customerService.addCustomer(customerToAdd);
       this.showMessage('新增成功！', 'success');
       this.resetNewCustomer();
       this.showAddForm.set(false);
@@ -185,16 +202,22 @@ export class App implements OnInit {
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-          const customers: Omit<Customer, 'id' | 'created_at'>[] = jsonData.map((row: any) => ({
-            customer_code: String(row['客戶代碼'] || row['customer_code'] || ''),
-            recipient: String(row['收貨人'] || row['recipient'] || ''),
-            address: String(row['地址'] || row['address'] || ''),
-            tax_id: String(row['統編'] || row['tax_id'] || ''),
-          }));
+          const customers: Omit<Customer, 'id' | 'created_at'>[] = jsonData.map((row: any) => {
+            const customer_code = String(row['客戶代碼'] || row['customer_code'] || '');
+            const tax_id = String(row['統編'] || row['tax_id'] || '');
+            return {
+              // 如果沒有客戶代碼但有統編，用統編當客戶代碼
+              customer_code: customer_code || tax_id,
+              recipient: String(row['收貨人'] || row['recipient'] || ''),
+              address: String(row['地址'] || row['address'] || ''),
+              tax_id: tax_id,
+              notes: String(row['備註'] || row['notes'] || row['電話'] || row['phone'] || ''),
+            };
+          });
 
-          // 過濾掉空的資料
+          // 過濾掉空的資料（收貨人、地址必填，客戶代碼或統編至少要有一個）
           const validCustomers = customers.filter(
-            (c) => c.customer_code && c.recipient && c.address
+            (c) => c.recipient && c.address && (c.customer_code || c.tax_id)
           );
 
           resolve(validCustomers);

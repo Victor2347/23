@@ -58,6 +58,12 @@
                 <span class="label">統編</span>
                 <span class="value">{{ customer.tax_id || '-' }}</span>
               </div>
+              @if (customer.notes) {
+                <div class="info-row">
+                  <span class="label">備註</span>
+                  <span class="value">{{ customer.notes }}</span>
+                </div>
+              }
             </div>
             <button class="delete-btn" (click)="deleteCustomer(customer.id!)">刪除</button>
           </div>
@@ -91,15 +97,26 @@
   @if (showAddForm()) {
     <section class="add-form-section">
       <h2>新增客戶</h2>
+      <p class="form-hint">💡 客戶代碼和統編至少填一個，若只填統編則自動以統編作為客戶代碼</p>
       <form class="add-form" (submit)="$event.preventDefault(); addCustomer()">
         <div class="form-group">
-          <label for="customer_code">客戶代碼 *</label>
+          <label for="customer_code">客戶代碼</label>
           <input
             id="customer_code"
             type="text"
+            placeholder="若有統編可不填"
             [value]="newCustomer().customer_code"
             (input)="updateNewCustomer('customer_code', $event)"
-            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="tax_id">統編</label>
+          <input
+            id="tax_id"
+            type="text"
+            placeholder="若有客戶代碼可不填"
+            [value]="newCustomer().tax_id"
+            (input)="updateNewCustomer('tax_id', $event)"
           />
         </div>
         <div class="form-group">
@@ -122,13 +139,14 @@
             required
           />
         </div>
-        <div class="form-group">
-          <label for="tax_id">統編</label>
+        <div class="form-group full-width">
+          <label for="notes">備註（電話等）</label>
           <input
-            id="tax_id"
+            id="notes"
             type="text"
-            [value]="newCustomer().tax_id"
-            (input)="updateNewCustomer('tax_id', $event)"
+            placeholder="可填入電話或其他備註"
+            [value]="newCustomer().notes"
+            (input)="updateNewCustomer('notes', $event)"
           />
         </div>
         <button type="submit" class="submit-btn">確認新增</button>
@@ -151,6 +169,7 @@
                 <th>收貨人</th>
                 <th>地址</th>
                 <th>統編</th>
+                <th>備註</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -163,6 +182,7 @@
                   <td>{{ customer.recipient }}</td>
                   <td>{{ customer.address }}</td>
                   <td>{{ customer.tax_id || '-' }}</td>
+                  <td>{{ customer.notes || '-' }}</td>
                   <td>
                     <button class="table-delete-btn" (click)="deleteCustomer(customer.id!)">
                       刪除
@@ -180,7 +200,8 @@
   <!-- 使用說明 -->
   <section class="help-section">
     <h3>📋 Excel/CSV 匯入格式</h3>
-    <p>請確保欄位名稱為：<code>客戶代碼</code>、<code>收貨人</code>、<code>地址</code>、<code>統編</code></p>
-    <p>或英文：<code>customer_code</code>、<code>recipient</code>、<code>address</code>、<code>tax_id</code></p>
+    <p>請確保欄位名稱為：<code>客戶代碼</code>、<code>收貨人</code>、<code>地址</code>、<code>統編</code>、<code>備註</code>（或<code>電話</code>）</p>
+    <p>或英文：<code>customer_code</code>、<code>recipient</code>、<code>address</code>、<code>tax_id</code>、<code>notes</code>（或<code>phone</code>）</p>
+    <p>💡 客戶代碼與統編至少填一個，若只有統編則自動以統編作為客戶代碼</p>
   </section>
 </div>

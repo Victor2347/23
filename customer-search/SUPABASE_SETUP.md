@@ -12,6 +12,7 @@ CREATE TABLE customers (
   recipient VARCHAR(200) NOT NULL,
   address TEXT NOT NULL,
   tax_id VARCHAR(20),
+  notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -28,6 +29,12 @@ CREATE POLICY "Allow all operations" ON customers
   FOR ALL
   USING (true)
   WITH CHECK (true);
+```
+
+### 如果你已經有資料表，只需新增 notes 欄位：
+
+```sql
+ALTER TABLE customers ADD COLUMN notes TEXT;
 ```
 
 ## 2. 取得 API 金鑰
@@ -62,14 +69,17 @@ npm start
 
 ## Excel 匯入格式
 
-| 客戶代碼 | 收貨人 | 地址 | 統編 |
-|---------|--------|------|------|
-| C001 | 王小明 | 台北市信義區... | 12345678 |
-| C002 | 李小華 | 新北市板橋區... | 87654321 |
+| 客戶代碼 | 收貨人 | 地址 | 統編 | 備註 |
+|---------|--------|------|------|------|
+| C001 | 王小明 | 台北市信義區... | 12345678 | 0912-345-678 |
+|  | 李小華 | 新北市板橋區... | 87654321 | 週一~五配送 |
+
+💡 **客戶代碼與統編至少填一個**，若只填統編則系統會自動以統編作為客戶代碼。
 
 欄位名稱可用中文或英文：
 - `客戶代碼` 或 `customer_code`
 - `收貨人` 或 `recipient`
 - `地址` 或 `address`
 - `統編` 或 `tax_id`
+- `備註` 或 `notes` 或 `電話` 或 `phone`
 
